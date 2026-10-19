@@ -1,0 +1,31 @@
+# 1. AWS Credentials & Private Keys
+*.pem
+*.key
+*.id_rsa
+credentials
+.aws/
+cloudevo-key.pem
+
+# 2. Node.js & Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 3. Environment & Local Configs
+.env
+.env.local
+.env.*.local
+
+# 4. Terraform Local State (Sẽ dùng ở Ngày 5)
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# 5. OS & IDE junk files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
