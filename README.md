@@ -9,7 +9,7 @@
 - [x] **Ngày 1:** Xây dựng Web App mẫu, thiết kế mạng VPC Multi-AZ & Thực nghiệm Trường hợp 1 (Stateless Single EC2).
 - [x] **Ngày 2:** Thực nghiệm Trường hợp 2 (1 Web + 1 DB trên 1 EC2), kiểm thử SPOF & Tự động hóa Backup S3.
 - [x] **Ngày 3:** Thực nghiệm Trường hợp 3 (Tách tầng 2 EC2: Web Public + DB Private với Security Group Chaining).
-- [ ] **Ngày 4:** Thực nghiệm Trường hợp 4 (Web EC2 + Amazon RDS PostgreSQL Multi-AZ & Point-in-Time Recovery).
+- [x] **Ngày 4:** Thực nghiệm Trường hợp 4 (Web EC2 + Amazon RDS PostgreSQL Multi-AZ & Point-in-Time Recovery).
 - [ ] **Ngày 5:** Tự động hóa toàn bộ hạ tầng bằng Terraform (IaC) & CI/CD Pipeline (GitHub Actions).
 - [ ] **Ngày 6:** Hạch toán chi tiết FinOps AWS Pricing Calculator & Thiết kế Sơ đồ kiến trúc.
 - [ ] **Ngày 7:** Tổng kết Báo cáo Kỹ thuật, hoàn thiện Portfolio & Kịch bản thuyết trình bảo vệ.
@@ -175,5 +175,64 @@ cd scenarios/case3-two-ec2-web-db
 sudo bash pg_hba_config.sh
 
 # 4. Kiểm tra sức khỏe kết nối giữa Web và Private DB
+curl http://localhost/health
+```
+
+## KẾT QUẢ THỰC NGHIỆM NGÀY 4: TRƯỜNG HỢP 4 (1 WEB TRÊN EC2 + 1 DB TRÊN AMAZON RDS - CLOUD-NATIVE PRODUCTION)
+
+### 1. Kiến trúc Hạ tầng
+
+- **Kiến trúc Chuẩn Cloud-Native 2-Tier (Compute & Managed Database):**
+  - **Tầng Web (Compute Tier):** Máy chủ `cloudevo-web-rds-ec2` (`t3.micro`, Ubuntu 22.04 LTS) vận hành tại Public Subnet (`subnet-0914b2264a767ee33`), sở hữu Public IPv4 `13.212.204.91`. Triển khai cụm container bằng Docker Compose gồm Nginx Reverse Proxy (cổng 80) chuyển tiếp lưu lượng vào Node.js Web App (cổng 3000, Hostname `e304be23ed60`).
+  - **Tầng Cơ sở dữ liệu (Managed Data Tier):** Dịch vụ quản trị **Amazon RDS for PostgreSQL 16.10** (`cloudevo-rds-postgres`, `db.t4g.micro` - 2 vCPU Graviton2, 1 GiB RAM), lưu trữ trên khối đĩa 20 GiB `gp3` (3.000 IOPS, 125 MiB/s) kèm kích hoạt mã hóa đĩa tĩnh qua AWS KMS (`aws/rds`). Cơ sở dữ liệu được khởi tạo tên `cloudevo_db` với người dùng quản trị `cloudevo`.
+- **Phân tách Vùng mạng & Bảo mật Chiều sâu:**
+  - Khởi tạo **DB Subnet Group** (`cloudevo-db-subnet-group`) bao trùm 2 Private Subnets trải rộng trên 2 Availability Zones độc lập: `ap-southeast-1a` (`10.0.11.0/24`) và `ap-southeast-1b` (`10.0.12.0/24`), cô lập hoàn toàn cơ sở dữ liệu (`Public access: No`).
+  - **Security Group Chaining:** Nhóm bảo mật `cloudevo-db-sg` (`sg-07212bbabd8d70f2c`) khóa chặt cổng 5432, chỉ chấp nhận kết nối từ nguồn duy nhất là ID nhóm bảo mật của máy chủ Web `cloudevo-web-sg` (`sg-03c49016a8a6f5ecd`).
+- **Cơ chế Phục hồi Kết nối Tự động (Connection Resiliency):**
+  - Web App giao tiếp với cơ sở dữ liệu qua DNS Endpoint: `cloudevo-rds-postgres.c3im66o0wo30.ap-southeast-1.rds.amazonaws.com`.
+  - Cấu hình Connection Pool (`connectionTimeoutMillis: 2000`) cho phép ứng dụng duy trì kết nối bền bỉ, phản hồi mã chuẩn `HTTP 503` khi DB gián đoạn và tự động khôi phục luồng xử lý ngay khi RDS khả dụng mà không cần khởi động lại máy chủ Web.
+- **Chiến lược Sao lưu Dữ liệu Tự động (Automated Backups & PITR):**
+  - Kích hoạt tính năng **Automated Backups** lưu giữ bản ghi transaction logs liên tục, hỗ trợ khả năng khôi phục dữ liệu theo thời điểm (**Point-in-Time Recovery - PITR**) về bất kỳ giây nào trong quá khứ với RPO dưới 5 phút.
+
+---
+
+### 2. Số liệu Đo lường Thực nghiệm
+
+| Chỉ số Đánh giá                       | Phương pháp Kiểm thử                           | Kết quả Thực tế                                                   | Đánh giá Kỹ thuật (DevOps Insight)                                                                                                                                                                                                |
+| :------------------------------------ | :--------------------------------------------- | :---------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Thời gian khởi tạo**                | Triển khai thủ công (ClickOps)                 | **~45.0 phút**                                                    | Cấu hình DB Subnet Group, thiết lập hàng chục tùy chọn thông số RDS Console, chờ cấp phát và SSH vào EC2 dựng Web.                                                                                                                |
+| **Thời gian khởi tạo**                | Tự động hóa qua RDS & User Data                | **8 phút 30 giây** _(RDS)_ + **2 phút 30 giây** _(Web)_           | Tổng thời gian dựng hoàn chỉnh chỉ mất **~11.0 phút**, **rút ngắn 75.5%** thời gian bàn giao so với ClickOps.                                                                                                                     |
+| **Độ trễ Mạng Nội bộ**                | Kết nối Web EC2 $\rightarrow$ RDS Endpoint     | **2ms – 28ms**                                                    | Truy vấn qua endpoint `/health`: kết nối nội bộ VPC tới RDS DNS Endpoint đạt độ ổn định cao và độ trễ cực thấp.                                                                                                                   |
+| **Kiểm thử Gián đoạn DB (Test 4A)**   | Kích hoạt RDS Reboot & Đo bằng `dr_monitor.py` | Gián đoạn **11.46 giây** (10 chu kỳ ping lỗi `HTTP 503`)          | Bắt lỗi chính xác: Tầng Web độc lập trả HTTP 503. Kết nối tự phục hồi qua Connection Pool sau 11.46s; Hostname giữ nguyên `e304be23ed60`. **RPO = 0 byte**: Toàn bộ dữ liệu đơn hàng `#401` ($1,250.00) được bảo toàn nguyên vẹn. |
+| **Phục hồi theo Thời điểm (Test 4B)** | Khôi phục PITR (`Latest restorable time`)      | Khởi tạo thành công cụm `cloudevo-rds-pitr-restore`               | **RPO < 5 phút**: Tận dụng Transaction Logs tự động đẩy lên S3. Khôi phục độc lập sang instance mới mà không làm gián đoạn cụm Database đang chạy chính. RTO cấp phát máy phục hồi ~8–10 phút.                                    |
+| **Chi phí ước tính / Tháng**          | Region Singapore (`ap-southeast-1`)            | **~$29.50 / tháng** _(Single-AZ)_<br>_~$46.00 / tháng (Multi-AZ)_ | 1 EC2 `t3.micro` ($7.59) + 20GB gp3 ($1.92) + 1 RDS `db.t4g.micro` ($14.60) + 20GB RDS gp3 ($2.30) + 1 Public IPv4 ($3.65) + Automated Backup (Miễn phí).                                                                         |
+
+---
+
+### 3. Phân tích Ưu nhược điểm Kỹ thuật
+
+- **Ưu điểm vượt trội so với DB tự quản trị trên EC2 (Trường hợp 2 & 3):**
+  - **Triệt tiêu gánh nặng vận hành (Zero OS Maintenance):** AWS tự động đảm nhiệm việc vá lỗi hệ điều hành (OS patching), bảo trì phần cứng và cập nhật bản vá bảo mật cơ sở dữ liệu.
+  - **Khôi phục thảm họa đỉnh cao (Disaster Recovery):** Cơ chế Point-in-Time Recovery (PITR) cho phép phục hồi sau các sự cố phá hoại dữ liệu logic (xóa nhầm bảng) với sai lệch dữ liệu cực thấp (RPO < 5 phút), vượt trội hơn cơ chế Cronjob định kỳ 1 giờ ở Case 2 và Case 3.
+  - **Khả năng mở rộng & Độ sẵn sàng cao:** Dễ dàng nâng cấp kích thước instance (Vertical Scaling) hoặc chuyển đổi sang cấu hình Multi-AZ chỉ với một cú nhấp chuột/thay đổi biến cấu hình mà không làm gián đoạn cấu trúc mạng.
+- **Hạn chế & Rào cản Kỹ thuật (FinOps Trade-offs):**
+  - **Chi phí vận hành tăng:** Chi phí hàng tháng ở cấu hình Single-AZ ($29.50) cao hơn ~23% so với Case 3 ($24.00) và cao gấp đôi Case 2 ($14.37); khi bật Multi-AZ ($46.00), chi phí tăng hơn gấp 3 lần.
+  - **Thời gian cấp phát ban đầu:** Quá trình khởi tạo máy chủ RDS cần thời gian cấu hình phần cứng độc lập (~8.5 phút), lâu hơn việc khởi tạo một máy chủ EC2 thông thường.
+
+---
+
+### 4. Hướng dẫn Khởi chạy Cục bộ & Triển khai Trường hợp 4
+
+```bash
+# 1. Di chuyển vào thư mục kịch bản Case 4
+cd scenarios/case4-ec2-web-rds
+
+# 2. Cấu hình RDS Endpoint vào biến môi trường trong file setup_web_rds.sh
+# Thay thế giá trị RDS_ENDPOINT="YOUR_RDS_ENDPOINT_HERE"
+
+# 3. Chạy script kiểm thử chuyển đổi dự phòng & giám sát sức khỏe RDS
+bash rds_failover_test.sh
+
+# 4. Kiểm tra sức khỏe kết nối giữa Web EC2 và Amazon RDS
 curl http://localhost/health
 ```
