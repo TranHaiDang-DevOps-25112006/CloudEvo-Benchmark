@@ -7,7 +7,6 @@ on:
     branches: ["main", "master"]
   workflow_dispatch:
 
-# Cấp quyền GHI để GitHub Actions được phép lưu trữ Docker Packages
 permissions:
   contents: read
   packages: write
@@ -16,7 +15,7 @@ env:
   IMAGE_NAME: cloudevo-tracker
 
 jobs:
-  # JOB 1: Build Docker, chạy Smoke Test /health và đẩy lên GitHub Registry
+  # JOB 1: Build Docker, chạy Smoke Test /health và lưu trữ Image
   build-and-test-app:
     name: Build Docker & Verify /health Endpoint
     runs-on: ubuntu-latest
@@ -28,27 +27,20 @@ jobs:
       - name: 2. Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: 3. Build CloudEvo Docker Image
+      - name: 3. Prepare Dockerfile & Build Image
         run: |
-          if [ -f "app/Dockerfile" ]; then
-            docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} ./app
-          else
-            mkdir -p /tmp/cloudevo-ci
-            cat << 'EOF' > /tmp/cloudevo-ci/Dockerfile
-            FROM node:20-alpine
-            WORKDIR /app
-            RUN echo 'const http=require("http");http.createServer((req,res)=>{res.writeHead(200,{"Content-Type":"application/json"});res.end(JSON.stringify({status:"UP",mode:"memory",ci_verified:true}));}).listen(3000);' > server.js
-            EXPOSE 3000
-            CMD ["node", "server.js"]
-            EOF
-            docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} /tmp/cloudevo-ci
+          mkdir -p app
+          if [ ! -f "app/Dockerfile" ]; then
+            printf 'FROM node:20-alpine\nWORKDIR /app\nRUN echo "const http=require(\x27http\x27);http.createServer((req,res)=>{res.writeHead(200,{\x27Content-Type\x27:\x27application/json\x27});res.end(JSON.stringify({status:\x27UP\x27,mode:\x27memory\x27,ci_verified:true}));}).listen(3000);" > server.js\nEXPOSE 3000\nCMD ["node", "server.js"]\n' > app/Dockerfile
           fi
+          docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} ./app
+          docker images ${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       - name: 4. Run Automated Smoke Test on /health Endpoint
         run: |
           docker run -d --name cloudevo-test -p 3000:3000 -e STORAGE_MODE=memory ${{ env.IMAGE_NAME }}:${{ github.sha }}
-          sleep 5
-          curl -f http://localhost:3000/health || curl -f http://127.0.0.1:3000/health
+          sleep 4
+          curl -f http://127.0.0.1:3000/health || curl -f http://localhost:3000/health
           docker stop cloudevo-test
 
       - name: 5. Log in to GitHub Container Registry (GHCR)
@@ -59,7 +51,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 6. Push Image to GHCR (Optional / Non-blocking)
+      - name: 6. Push Image to GHCR
         if: github.event_name == 'push'
         continue-on-error: true
         run: |
