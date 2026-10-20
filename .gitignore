@@ -17,11 +17,13 @@ yarn-error.log*
 .env.local
 .env.*.local
 
-# 4. Terraform Local State (Sẽ dùng ở Ngày 5)
+# 4. Terraform Local State
+**/.terraform/*
 *.tfstate
 *.tfstate.*
 .terraform/
 .terraform.lock.hcl
+*.tfvars
 
 # 5. OS & IDE junk files
 .DS_Store
