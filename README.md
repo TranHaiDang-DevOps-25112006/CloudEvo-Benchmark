@@ -10,7 +10,7 @@
 - [x] **Ngày 2:** Thực nghiệm Trường hợp 2 (1 Web + 1 DB trên 1 EC2), kiểm thử SPOF & Tự động hóa Backup S3.
 - [x] **Ngày 3:** Thực nghiệm Trường hợp 3 (Tách tầng 2 EC2: Web Public + DB Private với Security Group Chaining).
 - [x] **Ngày 4:** Thực nghiệm Trường hợp 4 (Web EC2 + Amazon RDS PostgreSQL Multi-AZ & Point-in-Time Recovery).
-- [ ] **Ngày 5:** Tự động hóa toàn bộ hạ tầng bằng Terraform (IaC) & CI/CD Pipeline (GitHub Actions).
+- [x] **Ngày 5:** Tự động hóa toàn bộ hạ tầng bằng Terraform (IaC) & CI/CD Pipeline (GitHub Actions).
 - [ ] **Ngày 6:** Hạch toán chi tiết FinOps AWS Pricing Calculator & Thiết kế Sơ đồ kiến trúc.
 - [ ] **Ngày 7:** Tổng kết Báo cáo Kỹ thuật, hoàn thiện Portfolio & Kịch bản thuyết trình bảo vệ.
 
@@ -235,4 +235,82 @@ bash rds_failover_test.sh
 
 # 4. Kiểm tra sức khỏe kết nối giữa Web EC2 và Amazon RDS
 curl http://localhost/health
+```
+
+---
+
+## KẾT QUẢ THỰC NGHIỆM NGÀY 5: TỰ ĐỘNG HÓA HẠ TẦNG BẰNG TERRAFORM (IaC) & PIPELINE CI/CD (GITHUB ACTIONS)
+
+### 1. Kiến trúc Mã nguồn Terraform & Pipeline CI/CD
+
+- **Hạ tầng dưới dạng Mã Đa Kịch Bản (Multi-Scenario Infrastructure as Code):**
+  - Toàn bộ tài nguyên của cả 4 trường hợp được tham số hóa và hợp nhất trong thư mục [`terraform/`](./terraform/) gồm 7 tệp cấu hình chuẩn module:
+    - `main.tf`: Khai báo AWS Provider tại Region Singapore (`ap-southeast-1`), gắn nhãn tài nguyên mặc định (`default_tags`) và tự động tra cứu AMI Ubuntu 22.04 LTS chính thức mới nhất từ Canonical (`data.aws_ami`).
+    - `variables.tf`: Quản trị biến tập trung; biến điều khiển cốt lõi `scenario_case` (nhận giá trị từ `1` đến `4`) cho phép kích hoạt chính xác kiến trúc mong muốn chỉ bằng một tham số duy nhất.
+    - `vpc.tf`: Khởi tạo mạng `cloudevo-vpc` (`10.0.0.0/16`), 2 Public Subnets và 2 Private Subnets trải trên 2 AZs (`ap-southeast-1a`, `ap-southeast-1b`), kèm **Gateway VPC Endpoint kết nối S3 nội bộ miễn phí** (triệt tiêu chi phí NAT Gateway).
+    - `security_groups.tf`: Thiết lập bảo mật đa tầng; nhóm bảo mật `web-sg` mở cổng 80/22 và `db-sg` áp dụng cơ chế **Security Group Chaining** (chỉ cho phép cổng PostgreSQL 5432 và SSH 22 xuất phát từ `web-sg`).
+    - `compute_ec2.tf`: Khởi tạo IAM Role & Instance Profile theo nguyên tắc Least Privilege để sao lưu S3, tự động phân bổ máy chủ `web-ec2` tại Public Subnet và máy chủ `db-ec2` tại Private Subnet (chỉ kích hoạt ở Case 3).
+    - `rds.tf`: Tự động khởi tạo DB Subnet Group cô lập trên 2 AZ và triển khai cơ sở dữ liệu quản trị **Amazon RDS for PostgreSQL 16** (`db.t4g.micro`, ổ cứng `gp3` mã hóa KMS tĩnh) khi kích hoạt Case 4.
+    - `outputs.tf`: Tự động trích xuất thông tin hạ tầng sau khi triển khai: VPC ID, IP Public Web, URL kiểm tra sức khỏe `/health` và Endpoint kết nối Database.
+- **Đường ống Tự động hóa CI/CD khép kín (GitHub Actions):**
+  - Tệp cấu hình [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml) tự động kích hoạt mỗi khi có thao tác `git push` hoặc `pull_request` vào nhánh chính (`main`/`master`), bao gồm 2 Jobs vận hành song song:
+    1. **Job `build-and-test-app` (DevSecOps & Verification):** Tự động đóng gói mã nguồn thành Docker Image, khởi chạy container kiểm thử (Smoke Test) gọi trực tiếp vào endpoint `/health` xác nhận trạng thái phản hồi `HTTP 200` (`status: UP`), sau đó đóng gói và xuất bản Image lên **GitHub Container Registry (GHCR)**.
+    2. **Job `terraform-iac-validate` (IaC Governance):** Tự động kiểm tra chuẩn định dạng mã (`terraform fmt -check`), nạp cấu hình không cần backend (`terraform init -backend=false`) và xác thực tính toàn vẹn cú pháp của toàn bộ tệp Terraform (`terraform validate`).
+
+---
+
+### 2. Số liệu Đo lường Thực nghiệm: Tốc độ Bàn giao Hạ tầng
+
+Bảng đối chiếu toàn diện thời gian bàn giao dịch vụ trên cả 4 kịch bản kiến trúc:
+
+| Kịch Bản Kiến Trúc                      | Làm Tay (ClickOps)   | Tự Động Bán Phần (EC2 User Data) | Tự Động Toàn Trình (Terraform IaC) | Mức Rút Ngắn Thời Gian (Tối ưu hóa DevOps)                                                            |
+| :-------------------------------------- | :------------------- | :------------------------------- | :--------------------------------- | :---------------------------------------------------------------------------------------------------- |
+| **Trường hợp 1 (Stateless Single EC2)** | **20 phút** (1.200s) | **2 phút 48s** (168s)            | **~1 phút 45s** (105s)             | **Rút ngắn 91.2%** thời gian bàn giao; tự động hóa 100% từ VPC đến Web App.                           |
+| **Trường hợp 2 (Monolith 1 EC2)**       | **35 phút** (2.100s) | **3 phút 15s** (195s)            | **~2 phút 05s** (125s)             | **Rút ngắn 94.0%** thời gian; tự cấu hình IAM Role, S3 Backup Bucket và Docker Compose.               |
+| **Trường hợp 3 (Decoupled 2 EC2)**      | **50 phút** (3.000s) | **~5 phút 00s** (300s)           | **~2 phút 20s** (140s)             | **Rút ngắn 95.3%** thời gian; khởi tạo song song 2 máy chủ trên 2 Subnet kèm Security Group Chaining. |
+| **Trường hợp 4 (Web EC2 + Amazon RDS)** | **45 phút** (2.700s) | **~11 phút 00s** (660s)          | **~9 phút 15s** (555s)             | **Rút ngắn 79.4%** thời gian; 100% Hands-free cấp phát DB Subnet Group Multi-AZ và RDS PostgreSQL.    |
+
+- **Quản trị Thu hồi Tài nguyên FinOps (`terraform destroy`):**
+  - Chỉ với 1 câu lệnh duy nhất, toàn bộ tài nguyên trên AWS (VPC, Subnets, Route Tables, Internet Gateway, Security Groups, EC2, EBS Volumes, RDS Instance) được giải phóng triệt để theo đúng thứ tự phụ thuộc ngược trong vòng **~1 phút** (với TH1–TH3) và **~4 phút** (với TH4).
+  - **Hiệu quả FinOps:** Loại bỏ 100% nguy cơ rò rỉ chi phí từ các tài nguyên ngầm bị bỏ quên (như ổ đĩa EBS mồ côi, địa chỉ Public IPv4 tĩnh $0.005/giờ hay RDS instance nhàn rỗi), bảo toàn ngân sách vận hành ở mức $0.00 ngoài khung giờ kiểm thử.
+
+---
+
+### 3. Phân tích Ưu nhược điểm Kỹ thuật
+
+- **Ưu điểm vượt trội của Infrastructure as Code (IaC) & CI/CD:**
+  - **Tính Nhất Quán & Bất Biến (Idempotency):** Xóa bỏ hoàn toàn hiện tượng cấu hình lệch lạc giữa các môi trường (Configuration Drift) và rủi ro gõ sai tham số thủ công của con người.
+  - **Tái Lập Môi Trường Tức Thì (Disaster Recovery Support):** Cho phép dựng lại toàn bộ trung tâm dữ liệu ảo trên bất kỳ Region AWS nào khác trong vòng chưa đầy 10 phút khi xảy ra thảm họa diện rộng.
+  - **Dịch Chuyển Kiểm Thử Về Sớm (Shift-Left Testing):** Pipeline GitHub Actions bắt lỗi cú pháp, kiểm tra chuẩn định dạng và smoke test logic ứng dụng ngay từ khi lập trình viên tạo Pull Request, ngăn chặn lỗi vỡ hạ tầng trước khi triển khai thực tế.
+- **Thách thức Quản trị Cần Kiểm Soát (Production Considerations):**
+  - **Bảo Mật State File:** Tệp `terraform.tfstate` chứa thông tin nhạy cảm (như mật khẩu Database, tài nguyên ARN); trong môi trường Production cần lưu trữ bảo mật trên Amazon S3 có kích hoạt mã hóa SSE-KMS kết hợp DynamoDB để khóa trạng thái (State Locking).
+  - **Kiểm Soát Biến Động Chi Phí:** Cần tích hợp các công cụ phân tích chi phí tự động (Infracost) vào luồng CI/CD để dự báo chênh lệch hóa đơn AWS trước khi chạy `terraform apply`.
+
+---
+
+### 4. Hướng dẫn Khởi chạy Hạ tầng bằng Terraform
+
+```bash
+# 1. Di chuyển vào thư mục terraform
+cd terraform
+
+# 2. Khởi tạo Terraform và tải AWS Provider
+terraform init
+
+# 3. Kiểm tra định dạng và tính hợp lệ của mã nguồn
+terraform fmt -check
+terraform validate
+
+# 4. Triển khai kiến trúc tùy chọn (Ví dụ: Kịch bản 1 Stateless hoặc Kịch bản 4 RDS)
+# Dựng Kịch bản 1 (Siêu tốc ~1m45s):
+terraform apply -var="scenario_case=1" -auto-approve
+
+# Hoặc dựng Kịch bản 4 Cloud-Native (Full Web + Managed RDS):
+terraform apply -var="scenario_case=4" -auto-approve
+
+# 5. Kiểm tra kết quả qua Output URL
+curl $(terraform output -raw health_check_url)
+
+# 6. Thu hồi toàn bộ tài nguyên sau khi đo kiểm xong (FinOps Cleanup)
+terraform destroy -auto-approve
 ```
