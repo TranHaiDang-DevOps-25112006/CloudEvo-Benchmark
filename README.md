@@ -8,7 +8,7 @@
 
 - [x] **Ngày 1:** Xây dựng Web App mẫu, thiết kế mạng VPC Multi-AZ & Thực nghiệm Trường hợp 1 (Stateless Single EC2).
 - [x] **Ngày 2:** Thực nghiệm Trường hợp 2 (1 Web + 1 DB trên 1 EC2), kiểm thử SPOF & Tự động hóa Backup S3.
-- [ ] **Ngày 3:** Thực nghiệm Trường hợp 3 (Tách tầng 2 EC2: Web Public + DB Private với Security Group Chaining).
+- [x] **Ngày 3:** Thực nghiệm Trường hợp 3 (Tách tầng 2 EC2: Web Public + DB Private với Security Group Chaining).
 - [ ] **Ngày 4:** Thực nghiệm Trường hợp 4 (Web EC2 + Amazon RDS PostgreSQL Multi-AZ & Point-in-Time Recovery).
 - [ ] **Ngày 5:** Tự động hóa toàn bộ hạ tầng bằng Terraform (IaC) & CI/CD Pipeline (GitHub Actions).
 - [ ] **Ngày 6:** Hạch toán chi tiết FinOps AWS Pricing Calculator & Thiết kế Sơ đồ kiến trúc.
@@ -118,4 +118,62 @@ curl http://localhost/health
 
 # 4. Chạy thử nghiệm script sao lưu dữ liệu lên S3
 bash backup_s3.sh
+```
+
+---
+
+## KẾT QUẢ THỰC NGHIỆM NGÀY 3: TRƯỜNG HỢP 3 (1 WEB TRÊN EC2 + 1 DB TRÊN EC2 RIÊNG BIỆT - DECOUPLED 2-TIER)
+
+### 1. Kiến trúc Hạ tầng
+
+- **Kiến trúc Tách tầng Độc lập (Decoupled 2-Tier):**
+  - **Tầng Web (Compute Tier):** Máy chủ `cloudevo-web-ec2` (`i-035bc597ce46ffb41`, `t3.micro`) đặt tại Public Subnet (`subnet-0914b2264a767ee33`), sở hữu Public IPv4 `13.229.225.174` và Private IP `10.0.1.183`. Đóng gói ứng dụng gồm Nginx Reverse Proxy (cổng 80) chuyển tiếp vào Node.js Express (cổng 3000).
+  - **Tầng Cơ sở dữ liệu (Data Tier):** Máy chủ `cloudevo-db-ec2` (`i-0e14eeeabd149cc1f`, `t3.micro`) đặt cô lập tại Private Subnet (`subnet-07a286c5fddc36e80`), chỉ sử dụng Private IPv4 `10.0.11.246`, không gắn Public IP. Cài đặt trực tiếp PostgreSQL 15, lắng nghe cổng nội bộ 5432 (`listen_addresses = '*'`) và xác thực qua dải mạng VPC (`scram-sha-256`).
+- **Bảo mật Chiều sâu (Security Group Chaining):**
+  - Nhóm bảo mật `cloudevo-db-sg` (`sg-07212bbabd8d70f2c`) áp dụng nguyên tắc tối thiểu hóa bề mặt tấn công: **chỉ mở Inbound cổng 5432 (PostgreSQL) và cổng 22 (SSH)** với Source duy nhất là ID của nhóm bảo mật Web `cloudevo-web-sg` (`sg-03c49016a8a6f5ecd`). Tuyệt đối không phơi nhiễm cổng Database ra Internet công cộng.
+  - Máy chủ `cloudevo-web-ec2` đồng thời đóng vai trò làm Bastion Host (Jump Server) để kỹ sư truy cập SSH quản trị máy chủ DB nội bộ.
+- **Tối ưu Chi phí Mạng (FinOps Network Optimization):**
+  - Tầng DB tại Private Subnet kết nối và đẩy các bản sao lưu `backup_s3.sh` trực tiếp lên Amazon S3 (`cloudevo-backup-dangth`) thông qua **Gateway VPC Endpoint** (`vpce-...`), giúp loại bỏ hoàn toàn chi phí đắt đỏ của NAT Gateway (~$43/tháng).
+
+---
+
+### 2. Số liệu Đo lường Thực nghiệm
+
+| Chỉ số Đánh giá                     | Phương pháp Kiểm thử                 | Kết quả Thực tế                                           | Đánh giá Kỹ thuật (DevOps Insight)                                                                                                                                              |
+| :---------------------------------- | :----------------------------------- | :-------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Thời gian khởi tạo**              | Triển khai thủ công (ClickOps)       | **~50.0 phút**                                            | Khởi tạo 2 EC2 trên 2 Subnet, cấu hình SSH Bastion/Key, cài đặt PostgreSQL, tinh chỉnh `pg_hba.conf` và liên kết Security Group thủ công.                                       |
+| **Thời gian khởi tạo**              | Tự động hóa qua EC2 User Data        | **2 phút 30 giây (150s)**                                 | User Data tự động tải gói `postgresql` từ Ubuntu repo và cấu hình DB EC2; tổng thời gian dựng cả cụm 2 máy chỉ mất **~5 phút** (**Rút ngắn 90.0%** thời gian).                  |
+| **Độ trễ Mạng Nội bộ**              | Kết nối Web EC2 $\rightarrow$ DB EC2 | **12ms**                                                  | Kiểm tra qua endpoint `/health`: kết nối nội bộ VPC qua Private IP `10.0.11.246` đạt độ ổn định và bảo mật cao.                                                                 |
+| **Kiểm thử Sập tầng Web (Test 3A)** | Sập Web EC2 / Khởi động lại dịch vụ  | Gián đoạn **86.05 giây** (29 chu kỳ ping lỗi `timed out`) | Hostname chuyển từ `c508d5e66ff3` sang `f9d769cd28a0`. **RPO = 0 byte**: Tầng Database hoàn toàn độc lập, bảo toàn 100% dữ liệu giao dịch (`Order #201 - $550.00`).             |
+| **Kiểm thử Sập tầng DB (Test 3B)**  | Dừng Database & Phục hồi từ S3       | Gián đoạn **44.07 giây** (39 chu kỳ ping lỗi `HTTP 503`)  | Bắt lỗi chính xác: Web App vẫn sống độc lập và trả về HTTP 503 khi mất DB. Dữ liệu nạp lại thành công từ S3 qua `restore_s3.sh`. RPO tương đương chu kỳ Cronjob backup (1 giờ). |
+| **Chi phí ước tính / Tháng**        | Region Singapore (`ap-southeast-1`)  | **~$24.00 / tháng**                                       | 2 x EC2 `t3.micro` ($15.18) + 2 x 20GB EBS `gp3` ($3.84) + 1 Public IPv4 ($3.65) + S3/Snapshot (~$1.33).                                                                        |
+
+---
+
+### 3. Phân tích Ưu nhược điểm Kỹ thuật
+
+- **Ưu điểm so với Trường hợp 2 (Monolith):**
+  - **Triệt tiêu Single Point of Failure (SPOF):** Sự cố quá tải hoặc sập tại một tầng không kéo theo tầng còn lại; tầng Web sập hoàn toàn không gây mất mát dù chỉ 1 byte dữ liệu ở Database.
+  - **Bảo mật chuẩn Doanh nghiệp:** Database được cô lập trong Private Subnet và bảo vệ 2 lớp nhờ Security Group Chaining, ngăn chặn nguy cơ xâm nhập trực tiếp từ Internet.
+  - **Độc lập Tài nguyên & Khả năng Scale:** CPU/RAM giữa Web và DB không còn tranh chấp; có thể nâng cấp cấu hình hoặc mở rộng máy chủ Web (Auto Scaling) mà không ảnh hưởng tới DB.
+- **Hạn chế & Rủi ro Quản trị (Unmanaged Database Trade-offs):**
+  - **Chi phí vận hành tăng:** Chi phí hàng tháng tăng ~65% so với Trường hợp 2 ($24.00 so với $14.50) do phải duy trì 2 máy chủ EC2 và 2 khối EBS.
+  - **Gánh nặng Tự quản trị (Operational Overhead):** Vẫn là cơ sở dữ liệu tự dựng (Self-managed DB) trên EC2, đội ngũ kỹ sư phải tự cấu hình sao lưu, tự vá lỗi hệ điều hành, tự xử lý mở rộng dung lượng ổ đĩa và không có cơ chế Multi-AZ tự động chuyển đổi dự phòng (Automatic Failover) như Managed Service (Amazon RDS).
+
+---
+
+### 4. Hướng dẫn Khởi chạy Cục bộ & Triển khai Trường hợp 3
+
+```bash
+# 1. Di chuyển vào thư mục kịch bản Case 3
+cd scenarios/case3-two-ec2-web-db
+
+# 2. Cấu hình địa chỉ IP Database nội bộ trong script cài đặt
+# Sửa biến DB_PRIVATE_IP="THAY_PRIVATE_IP_DB_EC2_VAO_DAY" trong file setup_web_ec2.sh
+
+# 3. Chạy script cấu hình mạng PostgreSQL và pg_hba.conf trên máy DB
+sudo bash pg_hba_config.sh
+
+# 4. Kiểm tra sức khỏe kết nối giữa Web và Private DB
+curl http://localhost/health
 ```
