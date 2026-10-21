@@ -11,8 +11,7 @@
 - [x] **Ngày 3:** Thực nghiệm Trường hợp 3 (Tách tầng 2 EC2: Web Public + DB Private với Security Group Chaining).
 - [x] **Ngày 4:** Thực nghiệm Trường hợp 4 (Web EC2 + Amazon RDS PostgreSQL Multi-AZ & Point-in-Time Recovery).
 - [x] **Ngày 5:** Tự động hóa toàn bộ hạ tầng bằng Terraform (IaC) & CI/CD Pipeline (GitHub Actions).
-- [ ] **Ngày 6:** Hạch toán chi tiết FinOps AWS Pricing Calculator & Thiết kế Sơ đồ kiến trúc.
-- [ ] **Ngày 7:** Tổng kết Báo cáo Kỹ thuật, hoàn thiện Portfolio & Kịch bản thuyết trình bảo vệ.
+- [x] **Ngày 6:** Hạch toán chi tiết FinOps AWS Pricing Calculator & Thiết kế Sơ đồ kiến trúc.
 
 ---
 
