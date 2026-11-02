@@ -5,7 +5,7 @@
 
 set -e
 
-ALERT_EMAIL="dangth.devops@gmail.com" # Thay bằng email nhận thông báo của bạn
+ALERT_EMAIL="${ALERT_EMAIL:-tranhaidang.devops@gmail.com}" # Có thể ghi đè: ALERT_EMAIL=... bash setup_budget.sh
 
 echo "=== [FinOps Guardrail] Bắt đầu thiết lập AWS Monthly Budget ==="
 

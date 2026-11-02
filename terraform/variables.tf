@@ -58,9 +58,9 @@ variable "db_username" {
 }
 
 variable "db_password" {
-  description = "Mật khẩu Database (Truyền qua biến môi trường hoặc tfvars)"
+  description = "Mật khẩu Database cho Kịch bản 4 (bắt buộc khi scenario_case=4). Truyền bằng biến môi trường TF_VAR_db_password, KHÔNG commit vào git."
   type        = string
-  default     = "CloudEvo2026StrongPass!"
+  default     = null
   sensitive   = true
 }
 

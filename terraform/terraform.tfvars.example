@@ -1,0 +1,10 @@
+# Sao chép thành terraform.tfvars (file này đã được .gitignore) rồi chỉnh giá trị.
+scenario_case = 1
+
+# Bật CloudWatch Alarm + SNS (mặc định tắt để giữ nguyên đường cơ sở đã đo: 21 tài nguyên ở Kịch bản 1)
+enable_monitoring = false
+alert_email       = "tranhaidang.devops@gmail.com"
+
+# Mật khẩu DB (chỉ cần cho scenario_case = 4). Nên truyền bằng biến môi trường thay vì ghi vào file:
+#   export TF_VAR_db_password='...'
+# db_password = "..."

@@ -9,7 +9,11 @@ RDS_ENDPOINT="YOUR_RDS_ENDPOINT_HERE"
 DB_PORT="5432"
 DB_NAME="cloudevo_db"
 DB_USER="cloudevo"
-DB_PASS="CloudEvoPass2026!"
+DB_PASS="${DB_PASS:-THAY_MAT_KHAU_DB_VAO_DAY}" # Dùng CÙNG một mật khẩu với mật khẩu master của Amazon RDS
+if [ "$DB_PASS" = "THAY_MAT_KHAU_DB_VAO_DAY" ]; then
+  echo "[LỖI] Hãy thay THAY_MAT_KHAU_DB_VAO_DAY bằng mật khẩu thật trước khi dán vào User Data."
+  exit 1
+fi
 
 # 1. Cài đặt Docker & Docker Compose
 apt-get update -y
@@ -60,7 +64,7 @@ const pool = new Pool({
   port: parseInt(process.env.DB_PORT || '5432'),
   database: process.env.DB_NAME || 'cloudevo_db',
   user: process.env.DB_USER || 'cloudevo',
-  password: process.env.DB_PASS || 'CloudEvoPass2026!',
+  password: process.env.DB_PASS,
   ssl: { rejectUnauthorized: false },
   max: 10,
   connectionTimeoutMillis: 2000,
@@ -290,6 +294,7 @@ services:
     depends_on:
       - cloudevo-web
 EOF
+chmod 600 /opt/cloudevo/docker-compose.yml
 
 docker compose up -d --build
 echo "=== [CASE 4] WEB EC2 CONNECTED TO RDS SUCCESSFULLY ==="

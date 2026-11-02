@@ -11,6 +11,13 @@ resource "aws_db_subnet_group" "rds_subnet_group" {
 
 # 2. Khởi tạo Amazon RDS for PostgreSQL (Chỉ kích hoạt khi scenario_case == 4)
 resource "aws_db_instance" "rds_postgres" {
+  lifecycle {
+    precondition {
+      condition     = var.db_password != null
+      error_message = "Kịch bản 4 cần mật khẩu DB: export TF_VAR_db_password='...' (không commit mật khẩu vào git)."
+    }
+  }
+
   count             = var.scenario_case == 4 ? 1 : 0
   identifier        = "${var.project_name}-rds-postgres-iac"
   engine            = "postgres"

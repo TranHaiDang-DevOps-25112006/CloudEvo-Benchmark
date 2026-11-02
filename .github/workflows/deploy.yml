@@ -1,4 +1,4 @@
-name: CloudEvo CI/CD - Build, Scan & Terraform Validate
+name: CloudEvo CI/CD - Build, Smoke Test & Terraform Validate
 
 on:
   push:
@@ -27,15 +27,11 @@ jobs:
       - name: 2. Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: 3. Prepare Dockerfile & Build Image
+      - name: 3. Build Docker Image (Multi-stage)
         run: |
-          mkdir -p app
-          if [ ! -f "app/Dockerfile" ]; then
-            printf 'FROM node:20-alpine\nWORKDIR /app\nRUN echo "const http=require(\x27http\x27);http.createServer((req,res)=>{res.writeHead(200,{\x27Content-Type\x27:\x27application/json\x27});res.end(JSON.stringify({status:\x27UP\x27,mode:\x27memory\x27,ci_verified:true}));}).listen(3000);" > server.js\nEXPOSE 3000\nCMD ["node", "server.js"]\n' > app/Dockerfile
-          fi
+          test -f app/Dockerfile || { echo "::error::app/Dockerfile không tồn tại"; exit 1; }
           docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} ./app
           docker images ${{ env.IMAGE_NAME }}:${{ github.sha }}
-
       - name: 4. Run Automated Smoke Test on /health Endpoint
         run: |
           docker run -d --name cloudevo-test -p 3000:3000 -e STORAGE_MODE=memory ${{ env.IMAGE_NAME }}:${{ github.sha }}

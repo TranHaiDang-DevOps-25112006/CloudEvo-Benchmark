@@ -1,4 +1,11 @@
-
+# -----------------------------------------------------------------------------
+# monitoring.tf - Amazon CloudWatch alarms + Amazon SNS e-mail alerts (opt-in)
+#
+# Off by default, so `terraform apply -var="scenario_case=1"` still creates the
+# same 21 resources that were measured (~1m 45s). Turn it on with:
+#
+#   terraform apply -var="scenario_case=1" -var="enable_monitoring=true"
+#
 # What it creates (resources in brackets exist only for that scenario):
 #   - SNS topic "Ops-Alerts" + e-mail subscription        (all scenarios)
 #   - Web EC2: CPU > threshold, status check failed       (all scenarios)
@@ -13,6 +20,7 @@
 #   - The topic is not encrypted with a KMS key on purpose: CloudWatch alarms
 #     cannot publish to a topic encrypted with the AWS managed key (alias/aws/sns).
 #   - Standard-resolution alarms cost about $0.10 per alarm per month.
+# -----------------------------------------------------------------------------
 
 variable "enable_monitoring" {
   description = "Create the SNS topic and CloudWatch alarms. Off by default so the measured baseline (21 resources for scenario 1) does not change."

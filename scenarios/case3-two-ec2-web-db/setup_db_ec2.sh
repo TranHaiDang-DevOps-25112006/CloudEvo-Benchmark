@@ -9,7 +9,11 @@ echo "=========================================================="
 # Thông số cấu hình
 DB_NAME="cloudevo_db"
 DB_USER="cloudevo"
-DB_PASS="CloudEvo@2026"
+DB_PASS="${DB_PASS:-THAY_MAT_KHAU_DB_VAO_DAY}" # Dùng CÙNG một mật khẩu ở cả setup_db_ec2.sh và setup_web_ec2.sh
+if [ "$DB_PASS" = "THAY_MAT_KHAU_DB_VAO_DAY" ]; then
+  echo "[LỖI] Hãy thay THAY_MAT_KHAU_DB_VAO_DAY bằng mật khẩu thật trước khi dán vào User Data."
+  exit 1
+fi
 S3_BUCKET="cloudevo-backup-dangth"
 VPC_CIDR="10.0.0.0/16"
 

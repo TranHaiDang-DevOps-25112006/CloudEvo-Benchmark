@@ -7,7 +7,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: cloudevo_user
-      POSTGRES_PASSWORD: CloudEvoPassword123!
+      POSTGRES_PASSWORD: ${DB_PASS:?Hãy đặt DB_PASS trong file .env (xem .env.example)}
       POSTGRES_DB: cloudevo_db
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -30,7 +30,7 @@ services:
       DB_HOST: db
       DB_PORT: 5432
       DB_USER: cloudevo_user
-      DB_PASS: CloudEvoPassword123!
+      DB_PASS: ${DB_PASS:?Hãy đặt DB_PASS trong file .env (xem .env.example)}
       DB_NAME: cloudevo_db
     depends_on:
       db:

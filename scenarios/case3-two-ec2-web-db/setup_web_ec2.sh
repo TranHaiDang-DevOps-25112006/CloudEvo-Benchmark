@@ -11,7 +11,11 @@ DB_PRIVATE_IP="THAY_PRIVATE_IP_DB_EC2_VAO_DAY"
 
 DB_NAME="cloudevo_db"
 DB_USER="cloudevo"
-DB_PASS="CloudEvo@2026"
+DB_PASS="${DB_PASS:-THAY_MAT_KHAU_DB_VAO_DAY}" # Dùng CÙNG một mật khẩu ở cả setup_db_ec2.sh và setup_web_ec2.sh
+if [ "$DB_PASS" = "THAY_MAT_KHAU_DB_VAO_DAY" ]; then
+  echo "[LỖI] Hãy thay THAY_MAT_KHAU_DB_VAO_DAY bằng mật khẩu thật trước khi dán vào User Data."
+  exit 1
+fi
 DB_PORT="5432"
 
 # 1. Cài đặt Docker & Docker Compose plugin
@@ -65,7 +69,7 @@ const pool = new Pool({
   host: DB_HOST,
   port: process.env.DB_PORT || 5432,
   user: process.env.DB_USER || 'cloudevo',
-  password: process.env.DB_PASSWORD || 'CloudEvo@2026',
+  password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME || 'cloudevo_db',
   connectionTimeoutMillis: 2000,
   query_timeout: 2000
@@ -244,6 +248,7 @@ services:
     depends_on:
       - cloudevo-web
 EOF
+chmod 600 /opt/cloudevo/docker-compose.yml
 
 # 8. Khởi chạy cụm container tầng Web
 docker compose up -d --build

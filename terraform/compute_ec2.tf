@@ -120,7 +120,8 @@ resource "aws_instance" "web_ec2" {
               apt-get update -y
               apt-get install -y ca-certificates curl gnupg docker.io docker-compose-v2 nginx
 
-              # Tạo ứng dụng CloudEvo Health & Order Tracker tự động qua Docker/Node
+              # DỊCH VỤ TẠM (PLACEHOLDER): chỉ phục vụ kiểm định hạ tầng, KHÔNG phải ứng dụng Express/PostgreSQL đầy đủ.
+              # Ứng dụng đầy đủ được triển khai bằng các script trong thư mục scenarios/.
               mkdir -p /opt/cloudevo
               cat << 'APP_EOF' > /opt/cloudevo/server.js
               const http = require('http');
@@ -138,9 +139,10 @@ resource "aws_instance" "web_ec2" {
                     scenario_case: Number(CASE_NUM),
                     provisioned_by: 'Terraform-IaC',
                     mode: STORAGE_MODE,
-                    db_connected: true,
+                    placeholder: true,
+                    db_connected: false,
                     db_host: DB_HOST,
-                    db_latency_ms: STORAGE_MODE === 'memory' ? 0 : 8,
+                    db_latency_ms: 0,
                     hostname: os.hostname(),
                     server_time: new Date().toISOString()
                   }, null, 2));

@@ -30,6 +30,13 @@ rm -rf /tmp/aws /tmp/awscliv2.zip
 echo "=== [2/6] Khởi tạo thư mục dự án /opt/cloudevo ==="
 mkdir -p /opt/cloudevo/app/src
 
+# Mật khẩu DB: sinh ngẫu nhiên ở lần chạy đầu và lưu trong /opt/cloudevo/.env (chmod 600).
+# Docker Compose tự đọc file .env cùng thư mục để điền ${DB_PASS}; mật khẩu không nằm trong mã nguồn.
+if [ ! -f /opt/cloudevo/.env ]; then
+  printf 'DB_PASS=%s\n' "$(openssl rand -hex 16)" > /opt/cloudevo/.env
+  chmod 600 /opt/cloudevo/.env
+fi
+
 cat <<'EOF' > /opt/cloudevo/app/package.json
 {
   "name": "cloudevo-tracker",
@@ -65,7 +72,7 @@ if (STORAGE_MODE === 'postgres') {
     host: process.env.DB_HOST || 'db',
     port: parseInt(process.env.DB_PORT || '5432'),
     user: process.env.DB_USER || 'cloudevo_user',
-    password: process.env.DB_PASS || 'CloudEvoPassword123!',
+    password: process.env.DB_PASS,
     database: process.env.DB_NAME || 'cloudevo_db',
     connectionTimeoutMillis: 2000,
     query_timeout: 2500
@@ -257,7 +264,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: cloudevo_user
-      POSTGRES_PASSWORD: CloudEvoPassword123!
+      POSTGRES_PASSWORD: ${DB_PASS}
       POSTGRES_DB: cloudevo_db
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -280,7 +287,7 @@ services:
       DB_HOST: db
       DB_PORT: 5432
       DB_USER: cloudevo_user
-      DB_PASS: CloudEvoPassword123!
+      DB_PASS: ${DB_PASS}
       DB_NAME: cloudevo_db
     depends_on:
       db:
@@ -328,8 +335,12 @@ S3_BUCKET="${S3_BUCKET}"
 echo "[\$(date)] Dang tai ban backup moi nhat tu s3://\${S3_BUCKET}/case2/latest.sql.gz..."
 aws s3 cp "s3://\${S3_BUCKET}/case2/latest.sql.gz" /tmp/latest.sql.gz
 
+echo "[\$(date)] Dung Web App trong luc nap du lieu (tranh khoi tao du lieu mau truoc khi restore)..."
+docker stop cloudevo-web || true
+
 echo "[\$(date)] Dang nap lai du lieu vao PostgreSQL..."
 gunzip -c /tmp/latest.sql.gz | docker exec -i cloudevo-postgres psql -U cloudevo_user -d cloudevo_db
+docker start cloudevo-web || true
 rm -f /tmp/latest.sql.gz
 echo "[\$(date)] KHOI PHUC DU LIEU TU S3 THANH CONG!"
 EOF

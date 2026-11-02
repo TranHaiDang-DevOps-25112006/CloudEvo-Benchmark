@@ -8,6 +8,16 @@ app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 3000;
 const STORAGE_MODE = process.env.STORAGE_MODE || "memory"; // 'memory' hoặc 'postgres'
+
+// Escape HTML để tránh XSS khi hiển thị dữ liệu người dùng nhập (ví dụ: ghi chú giao dịch)
+const escapeHtml = (value) =>
+  String(value).replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
 const SCENARIO_NAME =
   process.env.SCENARIO_NAME || "Case 1: Single EC2 (Stateless Web)";
 
@@ -24,11 +34,18 @@ const memoryTransactions = [
 // Cấu hình kết nối PostgreSQL cho Trường hợp 2, 3, 4 (STORAGE_MODE=postgres)
 let pool = null;
 if (STORAGE_MODE === "postgres") {
+  // Mật khẩu DB bắt buộc phải được truyền qua biến môi trường
+  if (!process.env.DB_PASS) {
+    console.error(
+      "[CONFIG] Thiếu biến môi trường DB_PASS (bắt buộc khi STORAGE_MODE=postgres).",
+    );
+    process.exit(1);
+  }
   pool = new Pool({
     host: process.env.DB_HOST || "localhost",
     port: parseInt(process.env.DB_PORT || "5432", 10),
     user: process.env.DB_USER || "postgres",
-    password: process.env.DB_PASS || "postgres123",
+    password: process.env.DB_PASS,
     database: process.env.DB_NAME || "cloudevo",
     connectionTimeoutMillis: 3000,
   });
@@ -170,7 +187,7 @@ app.get("/", async (req, res) => {
       (t) => `
     <tr>
       <td style="padding:10px;border-bottom:1px solid #e5e7eb;">#${t.id}</td>
-      <td style="padding:10px;border-bottom:1px solid #e5e7eb;">${t.customer}</td>
+      <td style="padding:10px;border-bottom:1px solid #e5e7eb;">${escapeHtml(t.customer)}</td>
       <td style="padding:10px;border-bottom:1px solid #e5e7eb;font-weight:bold;color:#059669;">$${Number(t.amount).toFixed(2)}</td>
       <td style="padding:10px;border-bottom:1px solid #e5e7eb;color:#6b7280;">${new Date(t.created_at).toISOString()}</td>
     </tr>
@@ -200,7 +217,7 @@ app.get("/", async (req, res) => {
       <div class="container">
         <h1 style="margin-top:0;">CloudEvo Order & Transaction Tracker</h1>
         <p style="color:#4b5563;font-size:16px;"><strong>Active Architecture:</strong> ${SCENARIO_NAME}</p>
-        <div><span class="badge">Storage Mode: ${STORAGE_MODE.toUpperCase()} — ${dbStatusText}</span></div>
+        <div><span class="badge">Storage Mode: ${STORAGE_MODE.toUpperCase()} — ${escapeHtml(dbStatusText)}</span></div>
 
         <div class="meta-grid">
           <div class="meta-box"><strong>Container / Hostname</strong><br/><span style="color:#4b5563;">${os.hostname()}</span></div>
