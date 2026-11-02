@@ -1,4 +1,4 @@
-# ===== Bí mật & khóa truy cập (KHÔNG BAO GIỜ commit) =====
+#  Bí mật & khóa truy cập
 *.pem
 *.key
 .env
@@ -8,16 +8,16 @@
 *.auto.tfvars
 !terraform.tfvars.example
 
-# ===== Terraform =====
+#  Terraform 
 .terraform/
 terraform.tfstate
 terraform.tfstate.*
 *.tfplan
 crash.log
 override.tf
-# Lưu ý: file .terraform.lock.hcl PHẢI được commit để cố định phiên bản provider
 
-# ===== Node / Python / hệ điều hành =====
+
+#  Node / Python / hệ điều hành 
 node_modules/
 __pycache__/
 *.pyc

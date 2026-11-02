@@ -6,18 +6,18 @@
 
 ![CI](https://github.com/TranHaiDang-DevOps-25112006/CloudEvo-Benchmark/actions/workflows/deploy.yml/badge.svg)
 
-## 🌐 Summary (English)
+## Summary
 
 CloudEvo compares four ways to host the same Node.js/Express order-tracker on AWS (Singapore, `ap-southeast-1`) and measures **deployment time**, **monthly cost** and **recovery (RTO/RPO)** for each.
 
-| Scenario | Deploy: ClickOps / User Data / Terraform | Cost / month (on-demand) | Measured RTO | Data loss (RPO) |
-|---|---|---|---|---|
-| 1. Stateless single EC2 | 20 min / 2m 48s / ~1m 45s | $15.21 | 449.48 s (manual replacement) | 100% of in-memory state |
-| 2. Web + PostgreSQL on one EC2 | 35 min / 3m 15s / not measured | $16.55 | 34.96 s (DB saturation); 82.49 s (restore from S3) | up to 1 h |
-| 3. Web EC2 + dedicated DB EC2 | 50 min / ~5m / not measured | $28.10 | 86.05 s (web); 44.07 s (DB restore from S3) | web 0; DB up to 1 h |
-| 4. Web EC2 + Amazon RDS | 45 min / ~11m / not measured | $36.22 Single-AZ ($57.96 Multi-AZ, priced only) | 11.46 s (RDS reboot) | 0 on reboot; PITR |
+| Scenario                       | Deploy: ClickOps / User Data / Terraform | Cost / month (on-demand)                        | Measured RTO                                       | Data loss (RPO)         |
+| ------------------------------ | ---------------------------------------- | ----------------------------------------------- | -------------------------------------------------- | ----------------------- |
+| 1. Stateless single EC2        | 20 min / 2m 48s / ~1m 45s                | $15.21                                          | 449.48 s (manual replacement)                      | 100% of in-memory state |
+| 2. Web + PostgreSQL on one EC2 | 35 min / 3m 15s / not measured           | $16.55                                          | 34.96 s (DB saturation); 82.49 s (restore from S3) | up to 1 h               |
+| 3. Web EC2 + dedicated DB EC2  | 50 min / ~5m / not measured              | $28.10                                          | 86.05 s (web); 44.07 s (DB restore from S3)        | web 0; DB up to 1 h     |
+| 4. Web EC2 + Amazon RDS        | 45 min / ~11m / not measured             | $36.22 Single-AZ ($57.96 Multi-AZ, priced only) | 11.46 s (RDS reboot)                               | 0 on reboot; PITR       |
 
-- Every measurement is a **single run**. Terraform was applied and timed end to end for **Scenario 1 only**; values tagged *estimate* in the docs are not measurements.
+- Every measurement is a **single run**. Terraform was applied and timed end to end for **Scenario 1 only**; values tagged _estimate_ in the docs are not measurements.
 - Final report (PDF): [`docs/report/TranHaiDang_AWS_Architecture_Report.pdf`](./docs/report/TranHaiDang_AWS_Architecture_Report.pdf) · Evidence map: [`docs/EVIDENCE.md`](./docs/EVIDENCE.md) · Daily reports: [`docs/Day1`](./docs/Day1/) … [`docs/Day6`](./docs/Day6/) · Architecture diagrams: [`docs/diagrams/`](./docs/diagrams/)
 
 ---
@@ -48,13 +48,13 @@ CloudEvo compares four ways to host the same Node.js/Express order-tracker on AW
 
 ### 2. Số liệu Đo lường Thực nghiệm
 
-| Chỉ số Đánh giá              | Phương pháp Triển khai              | Kết quả Thực tế             | Đánh giá Kỹ thuật (DevOps Insight)                                                        |
-| :--------------------------- | :---------------------------------- | :-------------------------- | :---------------------------------------------------------------------------------------- |
-| **Thời gian khởi tạo**       | ClickOps thủ công qua SSH           | **20 phút**                 | Mất nhiều thời gian gõ lệnh cài Docker, build image và cấu hình file.                     |
-| **Thời gian khởi tạo**       | Tự động qua EC2 User Data           | **2.8 phút (~170s)**        | **Tối ưu hóa ~86%** thời gian triển khai, loại bỏ hoàn toàn sai sót do con người.         |
-| **Thời gian chết (RTO)**     | Giả lập Terminate & Boot lại        | **449.48 giây (~7.5 phút)** | Đo bằng `dr_monitor.py` (150 chu kỳ ping lỗi). Phục hồi gồm thao tác thủ công (phát hiện sự cố, dựng máy mới từ console, gắn lại Elastic IP).      |
-| **Mất mát dữ liệu (RPO)**    | Sự cố sập máy chủ                   | **N/A (Reset 100%)**        | Chế độ in-memory: toàn bộ dữ liệu trên RAM biến mất khi đổi Hostname sang `363732ec3ca3`. |
-| **Chi phí ước tính / Tháng** | Region Singapore (`ap-southeast-1`) | **~$15.21 / tháng**         | 1 EC2 `t3.micro` ($9.64) + 20GB EBS `gp3` ($1.92) + 1 Public IPv4 ($3.65).                |
+| Chỉ số Đánh giá              | Phương pháp Triển khai              | Kết quả Thực tế             | Đánh giá Kỹ thuật (DevOps Insight)                                                                                                            |
+| :--------------------------- | :---------------------------------- | :-------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Thời gian khởi tạo**       | ClickOps thủ công qua SSH           | **20 phút**                 | Mất nhiều thời gian gõ lệnh cài Docker, build image và cấu hình file.                                                                         |
+| **Thời gian khởi tạo**       | Tự động qua EC2 User Data           | **2.8 phút (~170s)**        | **Tối ưu hóa ~86%** thời gian triển khai, loại bỏ hoàn toàn sai sót do con người.                                                             |
+| **Thời gian chết (RTO)**     | Giả lập Terminate & Boot lại        | **449.48 giây (~7.5 phút)** | Đo bằng `dr_monitor.py` (150 chu kỳ ping lỗi). Phục hồi gồm thao tác thủ công (phát hiện sự cố, dựng máy mới từ console, gắn lại Elastic IP). |
+| **Mất mát dữ liệu (RPO)**    | Sự cố sập máy chủ                   | **N/A (Reset 100%)**        | Chế độ in-memory: toàn bộ dữ liệu trên RAM biến mất khi đổi Hostname sang `363732ec3ca3`.                                                     |
+| **Chi phí ước tính / Tháng** | Region Singapore (`ap-southeast-1`) | **~$15.21 / tháng**         | 1 EC2 `t3.micro` ($9.64) + 20GB EBS `gp3` ($1.92) + 1 Public IPv4 ($3.65).                                                                    |
 
 ---
 
@@ -98,14 +98,14 @@ curl http://localhost/health
 
 ### 2. Số liệu Đo lường Thực nghiệm
 
-| Chỉ số Đánh giá                      | Phương pháp Kiểm thử                           | Kết quả Thực tế                                   | Đánh giá Kỹ thuật (DevOps Insight)                                                                                                                                                    |
-| :----------------------------------- | :--------------------------------------------- | :------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Thời gian khởi tạo**               | Triển khai thủ công (ClickOps)                 | **~35 phút**                                      | Cài Docker, viết Compose, cấu hình PostgreSQL và phân quyền S3 thủ công.                                                                                                              |
-| **Thời gian khởi tạo**               | Tự động hóa qua EC2 User Data                  | **3 phút 15 giây (195s)**                         | **Rút ngắn 90.7% thời gian**, tự động hóa toàn bộ việc dựng container, cấu hình IAM CLI và đặt lịch Cronjob.                                                                          |
-| **Kiểm thử Nghẽn tài nguyên (SPOF)** | Kịch bản 2A: `stress-ng` CPU/RAM & Treo DB     | Gián đoạn **34.96 giây** (12 chu kỳ ping lỗi)     | Chứng minh điểm nghẽn **Single Point of Failure (SPOF)**: Khi PostgreSQL ngốn CPU/RAM hoặc bị khóa, toàn bộ Web App bị treo và trả lỗi theo (`timed out`).                            |
-| **Thời gian Phục hồi (RTO)**         | Kịch bản 2B: Sập cụm máy chủ & Khôi phục từ S3 | **82.49 giây** (28 chu kỳ ping lỗi)               | Đo bằng `dr_monitor.py`. Toàn bộ dữ liệu được nạp lại tự động từ bản sao lưu S3 mới nhất (`latest.sql.gz`) qua script `restore_s3.sh`.                                                |
+| Chỉ số Đánh giá                      | Phương pháp Kiểm thử                           | Kết quả Thực tế                                   | Đánh giá Kỹ thuật (DevOps Insight)                                                                                                                                                                                                                                       |
+| :----------------------------------- | :--------------------------------------------- | :------------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Thời gian khởi tạo**               | Triển khai thủ công (ClickOps)                 | **~35 phút**                                      | Cài Docker, viết Compose, cấu hình PostgreSQL và phân quyền S3 thủ công.                                                                                                                                                                                                 |
+| **Thời gian khởi tạo**               | Tự động hóa qua EC2 User Data                  | **3 phút 15 giây (195s)**                         | **Rút ngắn 90.7% thời gian**, tự động hóa toàn bộ việc dựng container, cấu hình IAM CLI và đặt lịch Cronjob.                                                                                                                                                             |
+| **Kiểm thử Nghẽn tài nguyên (SPOF)** | Kịch bản 2A: `stress-ng` CPU/RAM & Treo DB     | Gián đoạn **34.96 giây** (12 chu kỳ ping lỗi)     | Chứng minh điểm nghẽn **Single Point of Failure (SPOF)**: Khi PostgreSQL ngốn CPU/RAM hoặc bị khóa, toàn bộ Web App bị treo và trả lỗi theo (`timed out`).                                                                                                               |
+| **Thời gian Phục hồi (RTO)**         | Kịch bản 2B: Sập cụm máy chủ & Khôi phục từ S3 | **82.49 giây** (28 chu kỳ ping lỗi)               | Đo bằng `dr_monitor.py`. Toàn bộ dữ liệu được nạp lại tự động từ bản sao lưu S3 mới nhất (`latest.sql.gz`) qua script `restore_s3.sh`.                                                                                                                                   |
 | **Mất mát Dữ liệu (RPO)**            | So sánh dữ liệu trước và sau khôi phục         | **Mất dữ liệu phát sinh sau lần backup gần nhất** | Giao dịch `#1` (Init) xuất hiện lại với timestamp mới (13:22:34 UTC) nên chưa chứng minh dump được nạp lại (xem `docs/Day2`); Giao dịch `#2` (`Order #103 - AFTER Backup`) tạo sau khi chạy backup bị mất hoàn toàn. RPO phụ thuộc trực tiếp vào chu kỳ Cronjob (1 giờ). |
-| **Chi phí ước tính / Tháng**         | Region Singapore (`ap-southeast-1`)            | **~$16.55 / tháng**                               | 1 EC2 `t3.micro` ($9.64) + 25GB EBS `gp3` ($2.40) + 1 Public IPv4 ($3.65) + S3/Snapshot Storage (~$0.86).                                                                             |
+| **Chi phí ước tính / Tháng**         | Region Singapore (`ap-southeast-1`)            | **~$16.55 / tháng**                               | 1 EC2 `t3.micro` ($9.64) + 25GB EBS `gp3` ($2.40) + 1 Public IPv4 ($3.65) + S3/Snapshot Storage (~$0.86).                                                                                                                                                                |
 
 ---
 
@@ -285,11 +285,11 @@ curl http://localhost/health
 
 Bảng đối chiếu toàn diện thời gian bàn giao dịch vụ trên cả 4 kịch bản kiến trúc:
 
-| Kịch Bản Kiến Trúc                      | Làm Tay (ClickOps)   | Tự Động Bán Phần (EC2 User Data) | Tự Động Toàn Trình (Terraform IaC) | Mức Rút Ngắn Thời Gian (Tối ưu hóa DevOps)                                                            |
-| :-------------------------------------- | :------------------- | :------------------------------- | :--------------------------------- | :---------------------------------------------------------------------------------------------------- |
-| **Trường hợp 1 (Stateless Single EC2)** | **20 phút** (1.200s) | **2 phút 48s** (168s)            | **~1 phút 45s** (105s)             | **Rút ngắn 91.2%** thời gian bàn giao; tự động hóa VPC, Security Group, IAM và Web EC2.                           |
-| **Trường hợp 2 (Monolith 1 EC2)**       | **35 phút** (2.100s) | **3 phút 15s** (195s)            | **Chưa đo**                        | **User Data rút ngắn 90.7%**; mã Terraform đã viết nhưng chưa chạy và đo toàn trình.      |
-| **Trường hợp 3 (Decoupled 2 EC2)**      | **50 phút** (3.000s) | **~5 phút 00s** (300s)           | **Chưa đo**                        | **User Data rút ngắn 90.0%**; mã Terraform đã viết nhưng chưa chạy và đo toàn trình.      |
+| Kịch Bản Kiến Trúc                       | Làm Tay (ClickOps)   | Tự Động Bán Phần (EC2 User Data) | Tự Động Toàn Trình (Terraform IaC) | Mức Rút Ngắn Thời Gian (Tối ưu hóa DevOps)                                                            |
+| :--------------------------------------- | :------------------- | :------------------------------- | :--------------------------------- | :---------------------------------------------------------------------------------------------------- |
+| **Trường hợp 1 (Stateless Single EC2)**  | **20 phút** (1.200s) | **2 phút 48s** (168s)            | **~1 phút 45s** (105s)             | **Rút ngắn 91.2%** thời gian bàn giao; tự động hóa VPC, Security Group, IAM và Web EC2.               |
+| **Trường hợp 2 (Monolith 1 EC2)**        | **35 phút** (2.100s) | **3 phút 15s** (195s)            | **Chưa đo**                        | **User Data rút ngắn 90.7%**; mã Terraform đã viết nhưng chưa chạy và đo toàn trình.                  |
+| **Trường hợp 3 (Decoupled 2 EC2)**       | **50 phút** (3.000s) | **~5 phút 00s** (300s)           | **Chưa đo**                        | **User Data rút ngắn 90.0%**; mã Terraform đã viết nhưng chưa chạy và đo toàn trình.                  |
 | **Trường hợp 4 (Web EC2 + Managed RDS)** | **45 phút** (2.700s) | **~11 phút 00s** (660s)          | **Chưa đo**                        | **User Data rút ngắn 75.6%** (RDS cần ~8 phút 30s để cấp phát); Terraform chưa chạy và đo toàn trình. |
 
 - **Quản trị Thu hồi Tài nguyên FinOps (`terraform destroy`):**
@@ -343,11 +343,9 @@ curl $(terraform output -raw health_check_url)
 terraform destroy -auto-approve
 ```
 
-
-
 ---
 
-## 🔐 Cấu hình mật khẩu & bí mật
+## Cấu hình mật khẩu & bí mật
 
 Mã nguồn **không còn mật khẩu mặc định**. Cách cấp mật khẩu DB cho từng kịch bản:
 
@@ -357,22 +355,22 @@ Mã nguồn **không còn mật khẩu mặc định**. Cách cấp mật khẩu
 - **Case 4:** đặt `DB_PASS` trong `setup_web_rds.sh` trùng mật khẩu master của RDS. Với Terraform: `export TF_VAR_db_password='...'` (bắt buộc khi `scenario_case=4`).
 - Không bao giờ commit: `*.pem`, `*.tfstate`, `*.tfvars`, `.env` (đã nằm trong `.gitignore`). Nên commit `terraform/.terraform.lock.hcl` để cố định phiên bản provider.
 
-## 📈 Giám sát & cảnh báo (tùy chọn) — `terraform/monitoring.tf`
+## Giám sát & cảnh báo (tùy chọn) — `terraform/monitoring.tf`
 
 - Tạo SNS topic `Ops-Alerts` (email) và các CloudWatch Alarm: CPU > 80% và status-check failed cho Web EC2 (mọi kịch bản), thêm DB EC2 (Case 3) hoặc RDS CPU/dung lượng trống (Case 4); alarm HTTP 503 là tùy chọn (`enable_http_503_alarm`, cần gửi log nginx lên CloudWatch Logs).
 - **Mặc định TẮT** để giữ nguyên đường cơ sở đã đo (Case 1: 21 tài nguyên, ~1 phút 45s). Bật bằng: `terraform apply -var="scenario_case=1" -var="enable_monitoring=true"`, sau đó bấm xác nhận email của AWS.
 - Trạng thái: đã thiết kế và viết mã; **thời gian gửi cảnh báo chưa được đo**.
 
-## ⚠️ Known issues & ghi chú làm rõ
+## Known issues & ghi chú làm rõ
 
-1. **Terraform chỉ được đo toàn trình cho Case 1.** Với Case 2–4, mã hạ tầng đã viết nhưng dịch vụ `/health` do Terraform khởi tạo là *service tạm* (placeholder), không phải ứng dụng Express/PostgreSQL đầy đủ.
+1. **Terraform chỉ được đo toàn trình cho Case 1.** Với Case 2–4, mã hạ tầng đã viết nhưng dịch vụ `/health` do Terraform khởi tạo là _service tạm_ (placeholder), không phải ứng dụng Express/PostgreSQL đầy đủ.
 2. **Test 2C (RPO):** Order #103 (tạo sau backup) đã mất; Order #1 xuất hiện lại với timestamp mới (13:22:34 UTC) nên chưa chứng minh dump được nạp lại. Cần kiểm thử lại (xem `docs/Day2`). Script `restore_s3.sh` nay dừng Web App trong lúc nạp dữ liệu.
 3. **Hình 1.4 (Case 4):** nhãn "11s" là RTO đo được (11.46 s), không phải thời gian gửi cảnh báo; SMS/PagerDuty chỉ là nhãn minh họa (hiện chỉ có email); Standby Replica (Multi-AZ) chỉ báo giá, chưa triển khai (xem `docs/Day6`).
 4. **RDS chạy Single-AZ.** `rds_failover_test.sh` tự nhận biết Multi-AZ; với Single-AZ chỉ reboot thường.
 5. **Mọi phép đo chỉ chạy một lần.** Giá lấy theo bảng giá công bố (không phải dữ liệu hóa đơn); đơn giá lưu trữ nên đối chiếu lại bằng AWS Pricing Calculator.
 6. **Lab shortcuts:** SSH mở `0.0.0.0/0`, Terraform state lưu local; production nên dùng SSM Session Manager, S3 backend có mã hóa và khóa state.
 
-## 🗂️ Cấu trúc repository
+## Cấu trúc repository
 
 ```text
 .github/workflows/deploy.yml   CI: build Docker, smoke test /health, terraform fmt/validate
